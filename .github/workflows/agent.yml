@@ -1,0 +1,39 @@
+name: Auto-Dev Agent
+
+on:
+  issues:
+    types: [opened, edited, labeled]
+  issue_comment:
+    types: [created]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run-agent:
+    if: github.event_name == 'workflow_dispatch' || (github.event.issue && contains(join(github.event.issue.labels.*.name), 'auto'))
+    runs-on: ubuntu-latest
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      AGENT_MODEL: gpt-4.1
+      AGENT_MAX_STEPS: "6"
+      AGENT_SELF_HEAL_RETRIES: "2"
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: Install agent deps
+        run: |
+          npm pkg set type="commonjs" >/dev/null 2>&1 || true
+          npm i @octokit/rest
+      - name: Run agent
+        run: node agent/runner.js
+      - name: Upload agent logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with: { name: agent-logs, path: agent/logs/** }
