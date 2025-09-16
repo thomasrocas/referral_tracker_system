@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Referral Patient Tracker — UPS/FEDEX Style</title>
+  <style>
+    /* ===============
+      Design Tokens
+    =============== */
+    :root{
+      --bg: #0b1020;
+      --card: #12172b;
+      --ink: #e8eefc;
+      --muted: #98a2b3;
+      --brand: #10b981; /* teal-green */
+      --brand-2: #4f46e5; /* indigo */
+      --warn: #f59e0b;
+      --danger: #ef4444;
+      --ok: #22c55e;
+      --line: #1f2742;
+      --chip: #1b2240;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius: 16px;
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: radial-gradient(1000px 600px at 10% -10%, #1a2251 0%, transparent 60%),
+                  radial-gradient(800px 500px at 100% 0%, #103253 0%, transparent 60%), var(--bg);
+      color:var(--ink);
+    }
+    a{color:inherit}
+
+    /* ===============
+      Layout
+    =============== */
+    .shell{max-width:1200px;margin-inline:auto;padding:24px}
+    header{
+      display:grid;grid-template-columns: 220px 1fr auto;gap:16px;align-items:center;margin-bottom:16px
+    }
+    .logo{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:.4px}
+    .logo .mark{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--brand),#1cd2a2);display:grid;place-items:center;box-shadow:var(--shadow)}
+    .topbar{background:var(--card);border-radius: var(--radius);padding:10px 12px;display:flex;gap:10px;align-items:center;box-shadow:var(--shadow)}
+    .topbar input{flex:1;background:#0f1430;border:1px solid var(--line);color:var(--ink);padding:10px 12px;border-radius:12px}
+    .pill{display:inline-flex;gap:8px;align-items:center;background:var(--chip);border:1px solid var(--line);padding:6px 10px;border-radius:999px;color:var(--ink);font-size:12px}
+    .status-badge{padding:6px 10px;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:.3px}
+
+    .grid{display:grid;grid-template-columns: 2.2fr 1fr;gap:16px}
+
+    /* ===============
+      Cards
+    =============== */
+    .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+    .card h3{margin:0;font-size:16px;font-weight:700}
+    .card .hd{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line)}
+    .card .bd{padding:14px 16px}
+
+    /* ===============
+      Timeline (UPS‑style)
+    =============== */
+    .timeline{padding:16px}
+    .steps{display:flex;gap:14px;overflow:auto;padding-bottom:10px}
+    .step{flex:0 0 180px;position:relative;text-align:center}
+    .step .dot{width:18px;height:18px;border-radius:50%;margin-inline:auto;display:grid;place-items:center;border:3px solid #2a3258;background:#0f1430;color:#fff}
+    .step.done .dot{background:var(--ok);border-color:rgba(34,197,94,.3)}
+    .step.current .dot{background:var(--brand-2);border-color:rgba(79,70,229,.4);box-shadow:0 0 0 6px rgba(79,70,229,.15)}
+    .step.blocked .dot{background:var(--danger);border-color:rgba(239,68,68,.3)}
+    .step .label{margin-top:10px;font-size:13px;color:var(--ink)}
+    .step .meta{margin-top:4px;font-size:11px;color:var(--muted)}
+    .trackline{position:absolute;left:calc(50% + 12px);right:-90px;top:9px;height:3px;background:linear-gradient(90deg,#21305e,#1a244b);z-index:-1}
+    .step.done .trackline{background:linear-gradient(90deg,rgba(34,197,94,.9),rgba(34,197,94,.4))}
+    .step.current .trackline{background:linear-gradient(90deg,rgba(79,70,229,.9),rgba(79,70,229,.3))}
+
+    /* ===============
+      Activity feed (vertical UPS events)
+    =============== */
+    .activity{display:grid;grid-template-columns: 1fr;gap:10px}
+    .event{display:grid;grid-template-columns: 22px 1fr;gap:12px}
+    .event .rail{position:relative}
+    .event .rail:before{content:"";position:absolute;left:10px;top:0;bottom:-10px;width:2px;background:linear-gradient(#223160,#223160)}
+    .event:last-child .rail:before{bottom:8px}
+    .event .node{width:14px;height:14px;border-radius:50%;background:#1c244c;border:3px solid #36406e;position:relative;top:4px}
+    .event.done .node{background:var(--ok);border-color:rgba(34,197,94,.35)}
+    .event.blocked .node{background:var(--danger);border-color:rgba(239,68,68,.35)}
+    .event .content{background:#0f1430;border:1px solid var(--line);padding:10px;border-radius:12px}
+    .event .title{font-size:14px;margin:0 0 4px}
+    .event .meta{font-size:12px;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap}
+
+    /* ===============
+      Alerts, Actions, Stakeholders
+    =============== */
+    .alert{display:flex;gap:10px;background:linear-gradient(180deg,rgba(239,68,68,.12),rgba(239,68,68,.04));border:1px solid rgba(239,68,68,.35);padding:10px;border-radius:12px}
+    .alert .badge{padding:3px 8px;border-radius:999px;background:rgba(239,68,68,.2);font-size:11px;border:1px solid rgba(239,68,68,.35)}
+    .warn{background:linear-gradient(180deg,rgba(245,158,11,.12),rgba(245,158,11,.04));border-color:rgba(245,158,11,.35)}
+    .ok{background:linear-gradient(180deg,rgba(34,197,94,.12),rgba(34,197,94,.04));border-color:rgba(34,197,94,.35)}
+
+    .actions{display:flex;gap:8px;flex-wrap:wrap}
+    .btn{background:#0f1430;border:1px solid var(--line);padding:8px 10px;border-radius:12px;color:var(--ink);cursor:pointer}
+    .btn:hover{border-color:#3a457a}
+    .btn.primary{background:linear-gradient(135deg,var(--brand-2),#6c63ff);border:none}
+
+    .stakeholders{display:flex;flex-wrap:wrap;gap:8px}
+    .avatar{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#1f2b5a;border:1px solid #334173;font-weight:700;font-size:12px}
+
+    /* ===============
+      Filters & chips
+    =============== */
+    .filters{display:flex;flex-wrap:wrap;gap:8px}
+    .chip{background:var(--chip);border:1px solid var(--line);padding:6px 10px;border-radius:999px;cursor:pointer;font-size:12px}
+    .chip.active{outline:2px solid var(--brand-2)}
+
+    /* ===============
+      Utilities
+    =============== */
+    .row{display:flex;align-items:center;gap:10px}
+    .row.sep{justify-content:space-between}
+    .muted{color:var(--muted)}
+    .right{margin-left:auto}
+
+    /* Responsive */
+    @media (max-width: 980px){
+      .grid{grid-template-columns:1fr}
+      header{grid-template-columns:1fr;gap:12px}
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div class="logo" aria-label="Brand">
+        <div class="mark" aria-hidden="true">📦</div>
+        <div>
+          <div style="font-size:14px;opacity:.8">ANX Care</div>
+          <div style="font-size:18px">Referral Tracker</div>
+        </div>
+      </div>
+
+      <div class="topbar" role="search">
+        <input id="search" placeholder="Enter Tracking ID, MRN, Patient, or Phone" aria-label="Tracking search" />
+        <button class="btn" onclick="handleSearch()" aria-label="Search">Search</button>
+        <span class="pill" id="statusPill">Status: <strong id="statusText">—</strong></span>
+      </div>
+
+      <div class="row" style="justify-content:flex-end; gap:8px">
+        <button class="btn" onclick="window.print()" aria-label="Print timeline">Print</button>
+        <button class="btn" onclick="toggleMode()" aria-label="Toggle mode">Public Mode</button>
+      </div>
+    </header>
+
+    <div class="grid">
+      <!-- Left: Timeline + Activity -->
+      <section class="card" aria-labelledby="milestones">
+        <div class="hd row sep">
+          <h3 id="milestones">Journey Status</h3>
+          <div class="filters" id="roleFilters" aria-label="Stakeholder filters"></div>
+        </div>
+
+        <div class="bd">
+          <div class="row sep" style="margin-bottom:10px">
+            <div class="row">
+              <span class="pill" id="trackingId">Tracking: —</span>
+              <span class="pill" id="patientPill">Patient: —</span>
+            </div>
+            <div class="row">
+              <span class="pill" id="slaPill">SLA: —</span>
+            </div>
+          </div>
+
+          <div class="timeline">
+            <div class="steps" id="steps"></div>
+          </div>
+        </div>
+
+        <div class="hd">
+          <h3>Latest Activity</h3>
+        </div>
+        <div class="bd">
+          <div class="activity" id="activity"></div>
+        </div>
+      </section>
+
+      <!-- Right: Alerts + Actions + Stakeholders -->
+      <aside class="card" aria-labelledby="alerts">
+        <div class="hd row sep">
+          <h3 id="alerts">Alerts & Bottlenecks</h3>
+          <span class="pill" id="alertCount">0 Alerts</span>
+        </div>
+        <div class="bd" id="alertsList"></div>
+
+        <div class="hd">
+          <h3>Next Best Actions</h3>
+        </div>
+        <div class="bd">
+          <div class="actions" id="nba"></div>
+        </div>
+
+        <div class="hd">
+          <h3>Stakeholders</h3>
+        </div>
+        <div class="bd">
+          <div class="stakeholders" id="stakeholders"></div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script>
+    /* =====================================================
+       Sample Data (replace via FileMaker or API at runtime)
+       - See window.refresh(data) below for integration.
+    ====================================================== */
+    const sample = {
+      trackingId: "ANX-REF-2025-0901-0017",
+      mode: "internal", // or "public" (de-identifies)
+      patient: {
+        name: "Jane Doe",
+        mrn: "109223",
+        dob: "1958-03-02",
+        phone: "+1-415-555-3344",
+        address: "123 Harbor Blvd, San Mateo, CA",
+        payor: "Medicare A/B",
+      },
+      stakeholders: [
+        { role: "Patient/Family", name: "Jane Doe", contact: { phone: "+14155553344" } },
+        { role: "Physician", name: "Dr. A. Smith", contact: { phone: "+14155551234" } },
+        { role: "Case Manager", name: "Sam CM (CPMC)", contact: { phone: "+14155555678" } },
+        { role: "Account Executive", name: "Carina Cu", contact: { phone: "+14155557890" } },
+        { role: "Scheduler", name: "Natalie Audelo", contact: { phone: "+14155550099" } },
+        { role: "Eligibility", name: "Ligare BPO", contact: { phone: "+14155551212" } },
+      ],
+      milestones: [
+        { code: "REF_RECEIVED", label: "Referral Received", status: "done", at: "2025-09-01T09:21:00-07:00", owner: "Account Executive", location: "CPMC", sla_hours: 2 },
+        { code: "INTAKE_REVIEW", label: "Intake Review", status: "done", at: "2025-09-01T09:55:00-07:00", owner: "Intake" , sla_hours: 4},
+        { code: "BENEFITS", label: "Benefits Verification", status: "done", at: "2025-09-01T11:10:00-07:00", owner: "Eligibility", sla_hours: 8 },
+        { code: "ORDERS", label: "Orders / Eligibility", status: "blocked", at: null, owner: "Physician", hold_reason: "MD signature pending", sla_hours: 12 },
+        { code: "SCHEDULING", label: "Scheduling", status: "pending", at: null, owner: "Scheduler", sla_hours: 6 },
+        { code: "ADMISSION", label: "Start of Care", status: "pending", at: null, owner: "Clinical", sla_hours: 24 },
+      ],
+      activities: [
+        { at: "2025-09-01T11:10:00-07:00", title: "Benefits verified", meta: "Medicare A/B, no auth required", role: "Eligibility", status: "done" },
+        { at: "2025-09-01T09:55:00-07:00", title: "Intake review completed", meta: "All documents in queue", role: "Intake", status: "done" },
+        { at: "2025-09-01T09:21:00-07:00", title: "Referral received", meta: "via fax from CPMC", role: "Account Executive", status: "done" },
+      ],
+      alerts: [
+        { severity: "high", message: "Waiting on MD signature (Orders)", owner:"Physician", nextAction: { label: "Call MD Office", role: "Account Executive", script: { name: "Call_MD_Office", payload: { reason:"MD Signature", trackingId: "ANX-REF-2025-0901-0017" } } } },
+        { severity: "warn", message: "Scheduling SLA approaching in 6h", owner:"Scheduler", nextAction: { label: "Pre-assign Clinician", role:"Scheduler", script: { name:"PreAssign_Clinician", payload: { trackingId: "ANX-REF-2025-0901-0017" } } } }
+      ]
+    };
+
+    /* ==========================
+       Render Engine
+    ========================== */
+    let state = JSON.parse(JSON.stringify(sample));
+
+    function $(id){return document.getElementById(id)}
+
+    function formatTime(iso){
+      if(!iso) return "—";
+      try{ const d = new Date(iso); return d.toLocaleString([], {hour: '2-digit', minute:'2-digit', month:'short', day:'2-digit'}); }catch{ return iso }
+    }
+    function since(iso){
+      if(!iso) return "—";
+      const s = (Date.now() - new Date(iso).getTime())/1000;
+      const h = Math.floor(s/3600), m = Math.floor((s%3600)/60);
+      return `${h}h ${m}m ago`;
+    }
+
+    function computeStatus(){
+      // Overall status
+      const firstBlocked = state.milestones.find(m=>m.status==='blocked');
+      const firstPending = state.milestones.find(m=>m.status==='pending' || m.status==='current');
+      if(firstBlocked) return { label: `Blocked — ${firstBlocked.label}`, tone:'danger'};
+      if(!firstPending) return { label:'Admitted', tone:'ok' };
+      const doneCount = state.milestones.filter(m=>m.status==='done').length;
+      return { label:`In Progress (${doneCount}/${state.milestones.length})`, tone:'brand' };
+    }
+
+    function renderHeader(){
+      $("trackingId").innerText = `Tracking: ${state.trackingId || '—'}`;
+      const patientName = state.mode==='public' ? "Patient": (state.patient?.name || '—');
+      $("patientPill").innerText = `Patient: ${patientName}`;
+      const st = computeStatus();
+      $("statusText").innerText = st.label;
+      const sla = estimateSLA();
+      $("slaPill").innerText = `Admission ETA: ${sla.eta}`;
+    }
+
+    function estimateSLA(){
+      // naive ETA: sum remaining SLA hours
+      const remaining = state.milestones.filter(m=>m.status!=='done').reduce((acc,m)=>acc+(m.sla_hours||0),0);
+      const eta = new Date(Date.now() + remaining*3600*1000).toLocaleString([], {month:'short', day:'2-digit', hour:'2-digit', minute:'2-digit'});
+      return { remainingHours: remaining, eta };
+    }
+
+    function renderSteps(){
+      const box = $("steps"); box.innerHTML = "";
+      const steps = state.milestones;
+      steps.forEach((m,i)=>{
+        // compute class
+        let cls = 'step';
+        if(m.status==='done') cls += ' done';
+        if(m.status==='blocked') cls += ' blocked';
+        if(m.status==='current' || (!steps.some(s=>s.status==='current') && steps[i-1]?.status==='done' && steps[i]?.status!=='done')) cls += ' current';
+        const el = document.createElement('div');
+        el.className = cls;
+        el.innerHTML = `
+          <div class="dot" aria-hidden="true">${m.status==='done'?'✓': m.status==='blocked'?'!':''}</div>
+          <div class="label">${m.label}</div>
+          <div class="meta">${m.at? formatTime(m.at) : (m.hold_reason||'Pending')} · Owner: ${m.owner||'—'}</div>
+          ${ i < steps.length-1 ? '<div class="trackline"></div>' : '' }
+        `;
+        box.appendChild(el);
+      })
+    }
+
+    function renderActivity(){
+      const wrap = $("activity"); wrap.innerHTML = '';
+      const chosenRoles = activeRoles();
+      const items = state.activities
+        .filter(a=> chosenRoles.size===0 || chosenRoles.has(a.role))
+        .sort((a,b)=> new Date(b.at)-new Date(a.at));
+
+      items.forEach(a=>{
+        const el = document.createElement('div');
+        el.className = `event ${a.status==='blocked'?'blocked': a.status==='done'?'done':''}`;
+        el.innerHTML = `
+          <div class="rail"><div class="node"></div></div>
+          <div class="content">
+            <h4 class="title">${a.title}</h4>
+            <div class="meta">
+              <span>${formatTime(a.at)}</span>
+              <span>·</span>
+              <span>${a.role || '—'}</span>
+              ${a.meta? `<span>·</span><span>${a.meta}</span>`:''}
+            </div>
+          </div>
+        `;
+        wrap.appendChild(el);
+      })
+    }
+
+    function renderAlerts(){
+      const box = $("alertsList"); box.innerHTML = '';
+      const alerts = computeBottlenecks();
+      $("alertCount").innerText = `${alerts.length} Alert${alerts.length===1?'':'s'}`;
+
+      alerts.forEach(a=>{
+        const el = document.createElement('div');
+        el.className = `alert ${a.severity==='warn'?'warn': a.severity==='ok'?'ok':''}`;
+        el.innerHTML = `
+          <div>
+            <div style="font-weight:700;margin-bottom:4px">${a.message}</div>
+            <div class="muted" style="font-size:12px;margin-bottom:8px">Owner: ${a.owner || '—'} ${a.due? '· Due: '+formatTime(a.due): ''}</div>
+            <div class="actions">
+              ${ a.nextAction ? `<button class="btn primary" onclick='callFM(${JSON.stringify(a.nextAction.script)})'>${a.nextAction.label}</button>`:'' }
+              ${ a.phone ? `<a class="btn" href="tel:${a.phone}">Call</a>`:'' }
+              ${ a.email ? `<a class="btn" href="mailto:${a.email}">Email</a>`:'' }
+            </div>
+          </div>
+        `;
+        box.appendChild(el);
+      })
+
+      // Next Best Actions panel is a mirror of alerts with primary actions
+      const nba = $("nba"); nba.innerHTML = '';
+      alerts.filter(a=>a.nextAction).forEach(a=>{
+        const b = document.createElement('button');
+        b.className = 'btn primary';
+        b.innerText = `${a.nextAction.label} — ${a.owner||''}`;
+        b.onclick = ()=>callFM(a.nextAction.script);
+        nba.appendChild(b);
+      })
+    }
+
+    function computeBottlenecks(){
+      const alerts = [...(state.alerts||[])];
+      // Add implicit alert for any blocked milestone
+      state.milestones.forEach(m=>{
+        if(m.status==='blocked'){
+          alerts.unshift({ severity:'high', message:`Blocked at ${m.label} — ${m.hold_reason||'Reason unknown'}`, owner: m.owner })
+        }
+      })
+      // SLA warnings (simple heuristic)
+      const firstPendingIdx = state.milestones.findIndex(m=>m.status!=='done');
+      if(firstPendingIdx>-1){
+        const next = state.milestones[firstPendingIdx];
+        if(next){
+          alerts.push({ severity:'warn', message:`Next step: ${next.label} — SLA ${next.sla_hours||'—'}h`, owner: next.owner })
+        }
+      }
+      return alerts;
+    }
+
+    function renderStakeholders(){
+      const box = $("stakeholders"); box.innerHTML = '';
+      (state.stakeholders||[]).forEach(s=>{
+        const el = document.createElement('div');
+        const initials = (s.name||' ').split(' ').map(x=>x[0]).slice(0,2).join('').toUpperCase();
+        el.innerHTML = `<span class="avatar" title="${s.role}: ${s.name}">${initials}</span>`;
+        box.appendChild(el);
+      })
+
+      // Role filter chips
+      const rf = $("roleFilters"); rf.innerHTML = '';
+      const roles = [...new Set((state.stakeholders||[]).map(s=>s.role))];
+      roles.forEach(role=>{
+        const chip = document.createElement('button');
+        chip.className = 'chip';
+        chip.dataset.role = role;
+        chip.innerText = role;
+        chip.onclick = ()=>{
+          chip.classList.toggle('active');
+          renderActivity();
+        };
+        rf.appendChild(chip);
+      })
+    }
+
+    function activeRoles(){
+      const selected = new Set();
+      document.querySelectorAll('.chip.active').forEach(c=>selected.add(c.dataset.role));
+      return selected;
+    }
+
+    function callFM(script){
+      // FileMaker integration: open fmp:// URL. Adjust file name as needed.
+      try{
+        const payload = encodeURIComponent(JSON.stringify(script.payload||{}));
+        const url = `fmp://$/ANX_App?script=${encodeURIComponent(script.name)}&param=${payload}`;
+        window.location.href = url;
+      }catch(e){ console.warn('FM call error', e); }
+    }
+
+    function handleSearch(){
+      alert('Hook this to your API or FileMaker script to load real data.');
+    }
+
+    // Public/Internal mode toggle (de-identify patient for public)
+    function toggleMode(){
+      state.mode = state.mode==='public' ? 'internal' : 'public';
+      renderAll();
+      document.querySelector('button[aria-label="Toggle mode"]').innerText = state.mode==='public' ? 'Internal Mode' : 'Public Mode';
+    }
+
+    function renderAll(){
+      renderHeader();
+      renderSteps();
+      renderActivity();
+      renderAlerts();
+      renderStakeholders();
+    }
+
+    // API for FileMaker / external loaders
+    // - Pass a JS object OR a JSON string; we will re-render.
+    // - Example (FileMaker Perform JavaScript):
+    //   Perform JavaScript in Web Viewer [ "refresh" ; JSON ]
+    window.refresh = function(data){
+      try{
+        state = (typeof data === 'string') ? JSON.parse(data) : data;
+        if(!state.mode) state.mode = 'internal';
+        renderAll();
+      }catch(e){ console.error('refresh() parse error', e); }
+    }
+
+    // Kick things off with the sample bundle
+    renderAll();
+  </script>
+</body>
+</html>
