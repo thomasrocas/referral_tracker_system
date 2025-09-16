@@ -426,16 +426,33 @@
     }
 
     function callFM(script){
-      // FileMaker integration: open fmp:// URL. Adjust file name as needed.
-      try{
-        const payload = encodeURIComponent(JSON.stringify(script.payload||{}));
-        const url = `fmp://$/ANX_App?script=${encodeURIComponent(script.name)}&param=${payload}`;
-        window.location.href = url;
-      }catch(e){ console.warn('FM call error', e); }
+      // Replace FileMaker call with API event logging
+      fetch(`/api/referrals/${state.trackingId}/event`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: script.name.replaceAll('_',' '),
+          meta: JSON.stringify(script.payload || {}),
+          role: 'System',
+          status: 'done'
+        })
+      });
     }
 
-    function handleSearch(){
-      alert('Hook this to your API or FileMaker script to load real data.');
+
+    async function handleSearch(){
+      const id = document.getElementById('search').value.trim();
+      if(!id){ 
+        alert('Enter a Tracking ID'); 
+        return; 
+      }
+      const res = await fetch(`/api/referrals/${encodeURIComponent(id)}`);
+      if(!res.ok){ 
+        alert('Tracking ID not found'); 
+        return; 
+      }
+      const bundle = await res.json();
+      window.refresh(bundle); // use your existing renderer
     }
 
     // Public/Internal mode toggle (de-identify patient for public)
