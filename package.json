@@ -1,8 +1,11 @@
 {
+  "name": "referral-tracker-system",
+  "private": true,
+  "workspaces": ["backend"],
   "scripts": {
-    "format": "prettier -w .",
-    "lint": "eslint .",
-    "test": "jest --runInBand",
-    "build": "tsc -p tsconfig.json || echo 'no build step'"
+    "format": "npm --prefix backend run format",
+    "lint": "npm --prefix backend run lint",
+    "test": "npm --prefix backend run test",
+    "build": "npm --prefix backend run build"
   }
 }
